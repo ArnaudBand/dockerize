@@ -1,5 +1,6 @@
 import React from 'react';
 import * as marked from 'marked';
+import ReactDOM from 'react-dom';
 
 const renderer = new marked.Renderer();
 
@@ -12,9 +13,8 @@ function App() {
   const [options, setOptions] = React.useState({
     breaks: true,
   });
-  const [textStyles, setTextStyles] = React.useState([]);
 
-  const applyStyle = (style) => {
+  const applyStyle = (style: string) => {
     let updatedText = text;
 
     switch (style) {
@@ -36,6 +36,9 @@ function App() {
       case "align-right":
         updatedText = applyMarkdownStyle(updatedText, '<div style="text-align: right;">', '</div>');
         break;
+      case "bullets":
+        updatedText = applyBullets(updatedText);
+        break;
       // Add more cases for other styles as needed
       default:
         break;
@@ -44,10 +47,10 @@ function App() {
     setText(updatedText);
   };
 
-  const applyMarkdownStyle = (text, startTag, endTag = "") => {
-    const textarea = document.getElementById('editor');
-    const selectionStart = textarea.selectionStart;
-    const selectionEnd = textarea.selectionEnd;
+  const applyMarkdownStyle = (text: string, startTag: string, endTag: string = ""): string => {
+    const textarea = document.getElementById('editor') as HTMLTextAreaElement;
+    const selectionStart = textarea.selectionStart || 0;
+    const selectionEnd = textarea.selectionEnd || 0;
 
     let updatedText = text;
 
@@ -61,6 +64,24 @@ function App() {
     return updatedText;
   };
 
+  const applyBullets = (text: string): string => {
+    const textarea = document.getElementById('editor') as HTMLTextAreaElement;
+    const selectionStart = textarea.selectionStart || 0;
+    const selectionEnd = textarea.selectionEnd || 0;
+
+    let updatedText = text;
+
+    if (selectionStart !== undefined && selectionEnd !== undefined) {
+      const selectedText = text.substring(selectionStart, selectionEnd);
+      const lines = selectedText.split('\n');
+      const bulletedText = lines.map(line => `• ${line}`).join('\n');
+
+      updatedText = text.substring(0, selectionStart) + bulletedText + text.substring(selectionEnd);
+    }
+
+    return updatedText;
+  };
+
   return (
     <div className="text-center px-4">
       <h1 className="p-4">My Markdown of Arnaud</h1>
@@ -69,9 +90,10 @@ function App() {
         <textarea
           name="text"
           id="editor"
-          rows="10"
+          rows={10}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          className="editor"
         ></textarea>
 
         <label>
@@ -84,13 +106,13 @@ function App() {
         </label>
 
         <div className="flex justify-evenly py-3 items-center bg-gray-600">
-          <button onClick={() => applyStyle("bold")} className={textStyles.includes("bold") ? "font-bold" : ""}>
+          <button onClick={() => applyStyle("bold")}>
             <Bold />
           </button>
-          <button onClick={() => applyStyle("italic")} className={textStyles.includes("italic") ? "italic" : ""}>
+          <button onClick={() => applyStyle("italic")}>
             <Italic />
           </button>
-          <button onClick={() => applyStyle("underline")} className={textStyles.includes("underline") ? "underline" : ""}>
+          <button onClick={() => applyStyle("underline")}>
             <Underline />
           </button>
           <button onClick={() => applyStyle("align-left")}>
@@ -102,6 +124,9 @@ function App() {
           <button onClick={() => applyStyle("align-right")}>
             Align Right
           </button>
+          <button onClick={() => applyStyle("bullets")}>
+            Bullets
+          </button>
         </div>
 
         <h3 className="mt-3">Result:</h3>
@@ -112,9 +137,26 @@ function App() {
   );
 }
 
-function Preview({ markdown, options }) {
-  const parsedMarkdown = marked.parse(markdown, { renderer, ...options });
-  return <div dangerouslySetInnerHTML={{ __html: parsedMarkdown }} id="preview"></div>;
+interface PreviewProps {
+  markdown: string;
+  options: { breaks: boolean };
 }
+
+const Preview: React.FC<PreviewProps> = ({ markdown, options }) => {
+  const previewRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    const parseMarkdown = async () => {
+      const result = await marked.parse(markdown, { renderer, ...options });
+      if (previewRef.current) {
+        previewRef.current.innerHTML = result;
+      }
+    };
+
+    parseMarkdown();
+  }, [markdown, options]);
+
+  return <div ref={previewRef} id="preview"></div>;
+};
 
 export default App;
